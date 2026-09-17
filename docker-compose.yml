@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: quota
+      POSTGRES_PASSWORD: quota
+      POSTGRES_DB: quota
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quota -d quota"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://quota:quota@db:5432/quota
+      # 未配置策略的层级自动使用的默认令牌桶参数
+      DEFAULT_CAPACITY: "1000"
+      DEFAULT_REFILL_RATE: "100"
+      # 预占默认/最大 TTL（秒），超时未提交将被回收并归还额度
+      RESERVATION_TTL_SECONDS: "60"
+      # 过期预占回收扫描间隔（秒）
+      SWEEP_INTERVAL_SECONDS: "0.5"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
